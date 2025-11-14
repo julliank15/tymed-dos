@@ -42,6 +42,23 @@ This project uses a modern, scalable technology stack designed for data acquisit
   - Automatic OpenAPI documentation
   - Type hints and validation with Pydantic
 
+- **GraphQL API Layer (Optional)**: Open-source GraphQL solutions for PostgreSQL
+  - **Hasura**: Instant GraphQL API on PostgreSQL
+    - Auto-generates GraphQL schema from database
+    - Real-time subscriptions via GraphQL
+    - Built-in authorization and access control
+    - Works alongside or replaces REST endpoints
+  - **PostGraphile**: PostgreSQL-first GraphQL server
+    - Automatically creates GraphQL API from PostgreSQL schema
+    - Supports PostGIS spatial queries
+    - Highly performant with connection pooling
+    - Extensible via plugins
+  - **Strawberry GraphQL (Python)**: Python-native GraphQL library
+    - Type-safe GraphQL schema with Python dataclasses
+    - Integrates seamlessly with FastAPI
+    - Async/await support for PostgreSQL queries
+    - Custom resolvers for complex business logic
+
 - **PostgreSQL with PostGIS**: Primary database with spatial extensions
   - **PostgreSQL**: Robust relational database for storing photo metadata
   - **PostGIS**: Spatial database extension for geographic queries
@@ -55,11 +72,12 @@ This project uses a modern, scalable technology stack designed for data acquisit
   - Supports different storage classes for archival vs. active data
 
 **Key Responsibilities:**
-- API endpoints for querying photos by location, date, and other criteria
+- REST and/or GraphQL API endpoints for querying photos by location, date, and other criteria
 - Managing photo metadata in PostgreSQL/PostGIS
 - Handling image uploads and retrieval from cloud storage
-- Geospatial queries for map-based filtering
+- Geospatial queries for map-based filtering (including GraphQL spatial queries)
 - Data organization and indexing
+- Real-time data subscriptions (if using GraphQL)
 
 ### 3. Frontend Presentation (The React UI)
 
@@ -106,7 +124,7 @@ This project uses a modern, scalable technology stack designed for data acquisit
            ▼
 ┌─────────────────────┐      ┌─────────────────────┐
 │   Backend API       │◄────►│  Cloud Storage      │
-│   (FastAPI)         │      │  (GCS/S3)           │
+│   (FastAPI/GraphQL) │      │  (GCS/S3)           │
 │                     │      │  (Images)           │
 │   PostgreSQL +      │      └─────────────────────┘
 │   PostGIS           │
@@ -140,7 +158,8 @@ This project uses a modern, scalable technology stack designed for data acquisit
 
 ### Recommended Patterns
 - Use Pydantic models for API request/response validation
-- Implement pagination for large result sets
+- Consider GraphQL for flexible client queries and real-time subscriptions
+- Implement pagination for large result sets (cursor-based for GraphQL)
 - Cache frequently accessed data
 - Optimize images for web delivery (multiple sizes/formats)
 - Use spatial indexes for location queries
@@ -161,3 +180,6 @@ When working on this project:
 - PostGIS Documentation: https://postgis.net/documentation/
 - Mapbox GL JS Documentation: https://docs.mapbox.com/mapbox-gl-js/
 - React Documentation: https://react.dev/
+- Hasura Documentation: https://hasura.io/docs/
+- PostGraphile Documentation: https://www.graphile.org/postgraphile/
+- Strawberry GraphQL Documentation: https://strawberry.rocks/
