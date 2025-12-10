@@ -1,5 +1,5 @@
 # Scrapy and web scraping
-scrapy==2.11.0
+scrapy==2.11.2
 scrapy-user-agents==0.1.1
 
 # Data processing
@@ -8,7 +8,7 @@ numpy==1.26.2
 
 # Geospatial libraries
 geopy==2.4.1
-Fiona==1.9.5
+Fiona==1.10.1
 
 # Database
 psycopg2-binary==2.9.9
@@ -17,4 +17,4 @@ geoalchemy2==0.14.2
 
 # Utilities
 python-dotenv==1.0.0
-Pillow==10.1.0
+Pillow==10.3.0
