@@ -59,13 +59,13 @@ build/
 *~
 .DS_Store
 
-# Scrapy
+# Scrapy output files
 .scrapy/
-*.json
-*.jsonl
-*.csv
-*.xml
-!scrapy.cfg
+scraper/*.json
+scraper/*.jsonl
+scraper/*.csv
+scraper/*.xml
+!scraper/scrapy.cfg
 
 # Database
 *.db
