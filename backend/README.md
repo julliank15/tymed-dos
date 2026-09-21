@@ -1,101 +1,100 @@
 # Tymed-Dos Backend
 
-FastAPI backend for the Tymed-Dos historical photo archive system.
+Spring Boot backend for the Tymed-Dos historical photo archive system.
 
-## Features
+## MVP Scope
 
-- RESTful API for photo and location queries
-- PostgreSQL with PostGIS for geospatial data
-- Pydantic models for data validation
-- OpenAPI documentation
-- CORS support for frontend integration
+This backend migration currently implements the Spring Boot MVP:
+
+- `GET /api/photos/`
+- `GET /api/photos/{photo_id}`
+- `GET /`
+- `GET /health`
+- PostgreSQL/PostGIS connectivity
+- Flyway baseline migration
+- OpenAPI docs at `/docs`
+
+Deferred from this MVP:
+
+- `POST /api/photos/`
+- `GET /api/locations/search`
+- `GET /api/locations/nearby`
+- Docker/CI polish
+- Full API compatibility audit
+
+## Requirements
+
+- Java 17+
+- Maven 3.9+
+- PostgreSQL 15+ with PostGIS
 
 ## Setup
 
-1. Create a virtual environment:
+1. Start PostgreSQL/PostGIS from the repository root:
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+cd /home/runner/work/tymed-dos/tymed-dos
+docker compose up -d postgres
 ```
 
-2. Install dependencies:
+2. Run the backend:
 ```bash
-pip install -r requirements.txt
+cd /home/runner/work/tymed-dos/tymed-dos/backend
+./mvnw spring-boot:run
 ```
 
-3. Set up environment variables:
+If `mvnw` is unavailable, use your installed Maven:
 ```bash
-cp .env.example .env
-# Edit .env with your database credentials
+cd /home/runner/work/tymed-dos/tymed-dos/backend
+mvn spring-boot:run
 ```
 
-4. Run the development server:
+3. API endpoints:
+- Main API: http://localhost:8080
+- OpenAPI docs: http://localhost:8080/docs
+- OpenAPI JSON: http://localhost:8080/openapi
+
+## Configuration
+
+The backend uses these environment variables:
+
+- `SPRING_DATASOURCE_URL` (default: `jdbc:postgresql://localhost:5432/tymed_dos`)
+- `SPRING_DATASOURCE_USERNAME` (default: `tymed`)
+- `SPRING_DATASOURCE_PASSWORD` (default: `password`)
+
+## Database
+
+Flyway automatically applies `/src/main/resources/db/migration/V1__create_photos_table.sql` on startup.
+
+The migration creates a `photos` table with:
+- photo metadata columns
+- latitude/longitude storage
+- a PostGIS-backed spatial index for nearby filtering
+
+## Testing
+
+Run backend tests with:
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API will be available at:
-- Main API: http://localhost:8000
-- Interactive docs: http://localhost:8000/docs
-- Alternative docs: http://localhost:8000/redoc
-
-## API Endpoints
-
-### Photos
-- `GET /api/photos/` - List photos with filters (date, location, pagination)
-- `GET /api/photos/{photo_id}` - Get specific photo
-- `POST /api/photos/` - Create new photo entry
-
-### Locations
-- `GET /api/locations/search` - Search locations by name
-- `GET /api/locations/nearby` - Find nearby locations
-
-## Database Setup
-
-### Using Docker (Recommended)
-
-From the repo root, use Docker Compose (PostgreSQL 16 + PostGIS 3.4):
-
-```bash
-cp .env.example .env    # then set POSTGRES_PASSWORD
-docker compose up -d
-```
-
-See the root README for details.
-
-### Manual Setup
-
-1. Install PostgreSQL with PostGIS extension
-2. Create database:
-```sql
-CREATE DATABASE tymed_dos;
-\c tymed_dos
-CREATE EXTENSION postgis;
+cd /home/runner/work/tymed-dos/tymed-dos/backend
+mvn test
 ```
 
 ## Project Structure
 
-```
+```text
 backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py           # FastAPI application
-│   ├── core/             # Core configuration
-│   ├── models/           # SQLAlchemy models
-│   ├── schemas/          # Pydantic schemas
-│   └── routes/           # API endpoints
-│       ├── photos.py
-│       └── locations.py
-├── requirements.txt
-├── .env.example
+├── legacy-fastapi/              # Deprecated FastAPI scaffold kept for reference
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/com/tymeddos/
+│   │   │   ├── TymedDosApplication.java
+│   │   │   ├── ApiInfoController.java
+│   │   │   ├── config/
+│   │   │   ├── exception/
+│   │   │   └── photo/
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       └── db/migration/
+│   └── test/
 └── README.md
 ```
-
-## Next Steps
-
-1. Implement database models with SQLAlchemy and GeoAlchemy2
-2. Add database migrations with Alembic
-3. Implement authentication/authorization
-4. Add cloud storage integration (GCS or S3)
-5. Implement caching with Redis
-6. Add comprehensive tests
