@@ -27,6 +27,7 @@ public class PhotoService {
             int limit,
             int offset
     ) {
+        validateLocationFilter(latitude, longitude, radiusKm);
         PhotoSearchCriteria criteria = new PhotoSearchCriteria(
                 parseDate(startDate, false),
                 parseDate(endDate, true),
@@ -42,6 +43,26 @@ public class PhotoService {
     public PhotoResponse getPhoto(String photoId) {
         return photoRepository.findById(photoId)
                 .orElseThrow(() -> new NotFoundException("Photo not found"));
+    }
+
+    private void validateLocationFilter(Double latitude, Double longitude, Double radiusKm) {
+        boolean any = latitude != null || longitude != null || radiusKm != null;
+        boolean all = latitude != null && longitude != null && radiusKm != null;
+        if (any && !all) {
+            throw new IllegalArgumentException("lat, lng and radius must be provided together");
+        }
+        if (!all) {
+            return;
+        }
+        if (latitude < -90 || latitude > 90) {
+            throw new IllegalArgumentException("lat must be between -90 and 90");
+        }
+        if (longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException("lng must be between -180 and 180");
+        }
+        if (radiusKm <= 0) {
+            throw new IllegalArgumentException("radius must be greater than 0 (km)");
+        }
     }
 
     private OffsetDateTime parseDate(String value, boolean endOfDay) {

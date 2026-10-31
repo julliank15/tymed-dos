@@ -13,8 +13,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PhotoController.class)
@@ -24,7 +24,7 @@ class PhotoControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private PhotoService photoService;
 
     @Test
@@ -47,6 +47,32 @@ class PhotoControllerTest {
                 .andExpect(jsonPath("$[0].location.latitude").value(40.7128))
                 .andExpect(jsonPath("$[0].metadata.source").value("library"))
                 .andExpect(jsonPath("$[0].metadata.tags[0]").value("history"));
+    }
+
+    @Test
+    void listPhotosWorksWithoutTrailingSlash() throws Exception {
+        when(photoService.getPhotos(null, null, null, null, null, 100, 0)).thenReturn(List.of(samplePhoto()));
+
+        mockMvc.perform(get("/api/photos"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("photo_1"));
+    }
+
+    @Test
+    void outOfRangeLimitReturns400() throws Exception {
+        mockMvc.perform(get("/api/photos").queryParam("limit", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").exists());
+
+        mockMvc.perform(get("/api/photos").queryParam("limit", "501"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void nonNumericParamReturns400() throws Exception {
+        mockMvc.perform(get("/api/photos").queryParam("lat", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Invalid value for 'lat'"));
     }
 
     @Test

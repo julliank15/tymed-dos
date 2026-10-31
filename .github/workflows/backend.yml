@@ -1,0 +1,86 @@
+name: Backend
+
+on:
+  push:
+    branches: [develop, main]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: tymed
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: tymed_dos
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tymed -d tymed_dos"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      POSTGRES_USER: tymed
+      POSTGRES_PASSWORD: ci-password
+      POSTGRES_DB: tymed_dos
+      PGPASSWORD: ci-password
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+
+      - name: Build and unit tests
+        run: ./mvnw -B verify
+
+      - name: Start app against PostGIS
+        run: |
+          nohup java -jar target/backend-*.jar > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:8080/actuator/health | grep -q '"UP"'; then echo "App is UP"; exit 0; fi
+            sleep 2
+          done
+          echo "App did not become healthy"; cat app.log; exit 1
+
+      - name: Smoke test endpoints
+        run: |
+          set -e
+          check() { # expected_status url
+            code=$(curl -s -o body.json -w '%{http_code}' "$2")
+            echo "$code $2 -> $(head -c 300 body.json)"
+            [ "$code" = "$1" ] || { echo "Expected $1"; exit 1; }
+          }
+          check 200 "http://localhost:8080/actuator/health"
+          check 200 "http://localhost:8080/api/photos"
+          check 200 "http://localhost:8080/api/photos/"
+          check 400 "http://localhost:8080/api/photos?limit=0"
+          check 400 "http://localhost:8080/api/photos?lat=42.33"
+          check 404 "http://localhost:8080/api/photos/does-not-exist"
+          check 200 "http://localhost:8080/openapi"
+
+          # PostGIS radius query: Detroit photo should match near Detroit, not near Chicago.
+          psql -h localhost -U tymed -d tymed_dos -c "INSERT INTO photos (id, title, url, latitude, longitude, date, tags)
+            VALUES ('ci_1', 'Woodward Ave', 'https://example.com/1.jpg', 42.3314, -83.0458, '1925-06-01T00:00:00Z', ARRAY['detroit'])"
+          check 200 "http://localhost:8080/api/photos?lat=42.33&lng=-83.05&radius=5"
+          grep -q '"ci_1"' body.json
+          check 200 "http://localhost:8080/api/photos?lat=41.88&lng=-87.63&radius=5"
+          grep -q '^\[\]$' body.json
+          check 200 "http://localhost:8080/api/photos?start_date=1920-01-01&end_date=1929-12-31"
+          grep -q '"ci_1"' body.json
+          check 200 "http://localhost:8080/api/photos/ci_1"
+
+      - name: App log
+        if: always()
+        run: cat app.log || true

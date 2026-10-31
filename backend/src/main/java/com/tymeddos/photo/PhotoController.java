@@ -21,7 +21,8 @@ public class PhotoController {
         this.photoService = photoService;
     }
 
-    @GetMapping("/")
+    // Matches both /api/photos and /api/photos/ (Spring Boot 3 no longer treats them as the same).
+    @GetMapping({"", "/"})
     public List<PhotoResponse> getPhotos(
             @RequestParam(name = "start_date", required = false) String startDate,
             @RequestParam(name = "end_date", required = false) String endDate,

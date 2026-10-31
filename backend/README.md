@@ -1,100 +1,84 @@
 # Tymed-Dos Backend
 
-Spring Boot backend for the Tymed-Dos historical photo archive system.
-
-## MVP Scope
-
-This backend migration currently implements the Spring Boot MVP:
-
-- `GET /api/photos/`
-- `GET /api/photos/{photo_id}`
-- `GET /`
-- `GET /health`
-- PostgreSQL/PostGIS connectivity
-- Flyway baseline migration
-- OpenAPI docs at `/docs`
-
-Deferred from this MVP:
-
-- `POST /api/photos/`
-- `GET /api/locations/search`
-- `GET /api/locations/nearby`
-- Docker/CI polish
-- Full API compatibility audit
+Spring Boot 3 backend (Java 21) for the Tymed-Dos historical photo archive, backed by PostgreSQL 16 + PostGIS.
 
 ## Requirements
 
-- Java 17+
-- Maven 3.9+
-- PostgreSQL 15+ with PostGIS
+- **JDK 21**: Amazon Corretto 21 recommended. The build fails with a clear message on older JDKs.
+- **Docker**, for the database
+- Maven is **not** required; use the bundled `./mvnw`
 
-## Setup
+## Run locally
 
-1. Start PostgreSQL/PostGIS from the repository root:
-```bash
-cd /home/runner/work/tymed-dos/tymed-dos
-docker compose up -d postgres
-```
-
-2. Run the backend:
-```bash
-cd /home/runner/work/tymed-dos/tymed-dos/backend
-./mvnw spring-boot:run
-```
-
-If `mvnw` is unavailable, use your installed Maven:
-```bash
-cd /home/runner/work/tymed-dos/tymed-dos/backend
-mvn spring-boot:run
-```
-
-3. API endpoints:
-- Main API: http://localhost:8080
-- OpenAPI docs: http://localhost:8080/docs
-- OpenAPI JSON: http://localhost:8080/openapi
+1. Start the database from the repo root (see the root README for details):
+   ```bash
+   cp .env.example .env    # set POSTGRES_PASSWORD
+   docker compose up -d
+   ```
+2. Start the backend:
+   ```bash
+   cd backend
+   ./mvnw spring-boot:run
+   ```
+3. Open:
+   - API: http://localhost:8080
+   - Health (includes the DB check): http://localhost:8080/actuator/health
+   - Swagger UI: http://localhost:8080/docs
+   - OpenAPI JSON: http://localhost:8080/openapi
 
 ## Configuration
 
-The backend uses these environment variables:
+Database settings come from the **repo-root `.env`** (the same file Docker Compose uses), or from real environment variables, which win:
 
-- `SPRING_DATASOURCE_URL` (default: `jdbc:postgresql://localhost:5432/tymed_dos`)
-- `SPRING_DATASOURCE_USERNAME` (default: `tymed`)
-- `SPRING_DATASOURCE_PASSWORD` (default: `password`)
+| Variable | Default | Notes |
+|---|---|---|
+| `POSTGRES_HOST` | `localhost` | |
+| `POSTGRES_PORT` | `5432` | |
+| `POSTGRES_DB` | `tymed_dos` | |
+| `POSTGRES_USER` | `tymed` | |
+| `POSTGRES_PASSWORD` | none | Required. Startup fails if it's missing. |
 
-## Database
+`SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` also work and override everything.
 
-Flyway automatically applies `/src/main/resources/db/migration/V1__create_photos_table.sql` on startup.
+## API (current)
 
-The migration creates a `photos` table with:
-- photo metadata columns
-- latitude/longitude storage
-- a PostGIS-backed spatial index for nearby filtering
+- `GET /`: API info
+- `GET /health`: simple liveness check
+- `GET /api/photos`: list photos
+  - `start_date`, `end_date`: ISO date (`1920-01-01`) or date-time
+  - `lat`, `lng`, `radius`: radius in km; all three together or none
+  - `limit` (1–500, default 100), `offset` (default 0)
+- `GET /api/photos/{id}`: one photo, 404 if missing
 
-## Testing
+Errors return `{"detail": "..."}` with 400 or 404.
 
-Run backend tests with:
+## Database migrations
+
+Flyway applies `src/main/resources/db/migration/*.sql` on startup. Never edit an applied migration; add a new `V<n>__description.sql` instead.
+
+## Tests
+
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/backend
-mvn test
+./mvnw test
 ```
 
-## Project Structure
+CI (`.github/workflows/backend.yml`) also starts the app against a real PostGIS database and smoke-tests the endpoints, including a radius query.
+
+## Structure
 
 ```text
 backend/
-├── legacy-fastapi/              # Deprecated FastAPI scaffold kept for reference
 ├── pom.xml
-├── src/
-│   ├── main/
-│   │   ├── java/com/tymeddos/
-│   │   │   ├── TymedDosApplication.java
-│   │   │   ├── ApiInfoController.java
-│   │   │   ├── config/
-│   │   │   ├── exception/
-│   │   │   └── photo/
-│   │   └── resources/
-│   │       ├── application.yml
-│   │       └── db/migration/
-│   └── test/
-└── README.md
+├── mvnw
+└── src/
+    ├── main/java/com/tymeddos/
+    │   ├── TymedDosApplication.java
+    │   ├── ApiInfoController.java
+    │   ├── config/        # CORS
+    │   ├── exception/     # error responses
+    │   └── photo/         # controller → service → repository (JDBC + PostGIS SQL)
+    ├── main/resources/
+    │   ├── application.yml
+    │   └── db/migration/
+    └── test/
 ```

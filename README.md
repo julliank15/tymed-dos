@@ -49,7 +49,7 @@ Tymed-Dos is organized into three major parts:
 - **Mapbox GL JS** via `react-map-gl`
 
 ### Backend
-- **Java 17**
+- **Java 21** (Amazon Corretto 21 recommended)
 - **Spring Boot**
 - **Spring Web / JDBC / Validation**
 - **Flyway**
@@ -66,16 +66,15 @@ Tymed-Dos is organized into three major parts:
 ### Prerequisites
 
 - **Node.js** 18+ and npm
-- **Java** 17+
-- **Maven** 3.9+
+- **Java 21** (Amazon Corretto 21 recommended). Maven is not needed; the backend ships with `./mvnw`
 - **Python** 3.10+
-- **PostgreSQL** 15+ with PostGIS
+- **Docker** (runs PostgreSQL 16 + PostGIS 3.4 via Docker Compose)
 - **Mapbox Account** (for map visualization)
 
 ### 1. Frontend Setup
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/frontend
+cd frontend
 npm install
 cp .env.example .env
 npm run dev
@@ -88,25 +87,38 @@ The frontend will be available at http://localhost:5173
 From the repository root:
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos
-docker compose up -d postgres
+cp .env.example .env    # then set POSTGRES_PASSWORD
+docker compose up -d
+docker compose ps       # wait for "healthy"
+
+# Check PostGIS is enabled
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT postgis_full_version();"'
 ```
+
+Stop with `docker compose down` (add `-v` to delete the data volume and start fresh).
+
+> **Upgrading from the old PostgreSQL 15 setup?** The existing data volume won't start on 16
+> ("database files are incompatible with server"). There's no real data yet, so reset it:
+> `docker compose down -v && docker compose up -d`.
 
 ### 3. Backend Setup
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/backend
+cd backend
 ./mvnw spring-boot:run
 ```
 
+The backend reads database settings from the same root `.env`.
+
 The backend will be available at http://localhost:8080
+- Health (includes DB check): http://localhost:8080/actuator/health
 - API docs: http://localhost:8080/docs
 - OpenAPI JSON: http://localhost:8080/openapi
 
 ### 4. Scraper Setup
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/scraper
+cd scraper
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -119,11 +131,12 @@ scrapy crawl example -o output.json
 tymed-dos/
 ├── frontend/
 ├── backend/
-│   ├── legacy-fastapi/         # Deprecated Python mock backend retained for reference
 │   ├── pom.xml
 │   ├── mvnw
 │   └── src/
 ├── scraper/
+├── db/init/                    # SQL run on first DB start (enables PostGIS)
+├── .env.example                # copy to .env for local DB credentials
 └── docker-compose.yml
 ```
 
@@ -132,14 +145,14 @@ tymed-dos/
 Implemented in Spring Boot:
 - `GET /`
 - `GET /health`
-- `GET /api/photos/`
+- `GET /api/photos` (filters: `start_date`, `end_date`, `lat` + `lng` + `radius` in km, `limit`, `offset`)
 - `GET /api/photos/{photo_id}`
+- `GET /actuator/health`
 
 Deferred from this migration phase:
 - `POST /api/photos/`
 - `GET /api/locations/search`
 - `GET /api/locations/nearby`
-- Docker/CI support for the Java backend
 - Full API compatibility audit and documentation
 
 ## 🧪 Development
@@ -147,7 +160,7 @@ Deferred from this migration phase:
 ### Frontend
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/frontend
+cd frontend
 npm run dev
 npm run build
 npm run lint
@@ -156,7 +169,7 @@ npm run lint
 ### Backend
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/backend
+cd backend
 ./mvnw test
 ./mvnw spring-boot:run
 ```
@@ -164,7 +177,7 @@ cd /home/runner/work/tymed-dos/tymed-dos/backend
 ### Scraper
 
 ```bash
-cd /home/runner/work/tymed-dos/tymed-dos/scraper
+cd scraper
 scrapy crawl <spider_name> -o output.json
 ```
 
