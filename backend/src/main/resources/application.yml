@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: tymed-dos-backend
+  config:
+    # Reuse the repo-root .env that Docker Compose uses (POSTGRES_USER, POSTGRES_PASSWORD, ...).
+    # Works whether the app is started from backend/ or from the repo root.
+    # Real environment variables still take precedence.
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:tymed_dos}
+    username: ${POSTGRES_USER:tymed}
+    # No default on purpose: set POSTGRES_PASSWORD in the repo-root .env (see .env.example).
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jackson:
+    default-property-inclusion: non_null
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /openapi
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000

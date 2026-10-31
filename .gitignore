@@ -84,3 +84,7 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# Java
+target/
+.mvn/wrapper/maven-wrapper.jar

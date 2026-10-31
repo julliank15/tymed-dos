@@ -1,101 +1,84 @@
 # Tymed-Dos Backend
 
-FastAPI backend for the Tymed-Dos historical photo archive system.
+Spring Boot 3 backend (Java 21) for the Tymed-Dos historical photo archive, backed by PostgreSQL 16 + PostGIS.
 
-## Features
+## Requirements
 
-- RESTful API for photo and location queries
-- PostgreSQL with PostGIS for geospatial data
-- Pydantic models for data validation
-- OpenAPI documentation
-- CORS support for frontend integration
+- **JDK 21**: Amazon Corretto 21 recommended. The build fails with a clear message on older JDKs.
+- **Docker**, for the database
+- Maven is **not** required; use the bundled `./mvnw`
 
-## Setup
+## Run locally
 
-1. Create a virtual environment:
+1. Start the database from the repo root (see the root README for details):
+   ```bash
+   cp .env.example .env    # set POSTGRES_PASSWORD
+   docker compose up -d
+   ```
+2. Start the backend:
+   ```bash
+   cd backend
+   ./mvnw spring-boot:run
+   ```
+3. Open:
+   - API: http://localhost:8080
+   - Health (includes the DB check): http://localhost:8080/actuator/health
+   - Swagger UI: http://localhost:8080/docs
+   - OpenAPI JSON: http://localhost:8080/openapi
+
+## Configuration
+
+Database settings come from the **repo-root `.env`** (the same file Docker Compose uses), or from real environment variables, which win:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `POSTGRES_HOST` | `localhost` | |
+| `POSTGRES_PORT` | `5432` | |
+| `POSTGRES_DB` | `tymed_dos` | |
+| `POSTGRES_USER` | `tymed` | |
+| `POSTGRES_PASSWORD` | none | Required. Startup fails if it's missing. |
+
+`SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` also work and override everything.
+
+## API (current)
+
+- `GET /`: API info
+- `GET /health`: simple liveness check
+- `GET /api/photos`: list photos
+  - `start_date`, `end_date`: ISO date (`1920-01-01`) or date-time
+  - `lat`, `lng`, `radius`: radius in km; all three together or none
+  - `limit` (1–500, default 100), `offset` (default 0)
+- `GET /api/photos/{id}`: one photo, 404 if missing
+
+Errors return `{"detail": "..."}` with 400 or 404.
+
+## Database migrations
+
+Flyway applies `src/main/resources/db/migration/*.sql` on startup. Never edit an applied migration; add a new `V<n>__description.sql` instead.
+
+## Tests
+
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+./mvnw test
 ```
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+CI (`.github/workflows/backend.yml`) also starts the app against a real PostGIS database and smoke-tests the endpoints, including a radius query.
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your database credentials
-```
+## Structure
 
-4. Run the development server:
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API will be available at:
-- Main API: http://localhost:8000
-- Interactive docs: http://localhost:8000/docs
-- Alternative docs: http://localhost:8000/redoc
-
-## API Endpoints
-
-### Photos
-- `GET /api/photos/` - List photos with filters (date, location, pagination)
-- `GET /api/photos/{photo_id}` - Get specific photo
-- `POST /api/photos/` - Create new photo entry
-
-### Locations
-- `GET /api/locations/search` - Search locations by name
-- `GET /api/locations/nearby` - Find nearby locations
-
-## Database Setup
-
-### Using Docker (Recommended)
-
-From the repo root, use Docker Compose (PostgreSQL 16 + PostGIS 3.4):
-
-```bash
-cp .env.example .env    # then set POSTGRES_PASSWORD
-docker compose up -d
-```
-
-See the root README for details.
-
-### Manual Setup
-
-1. Install PostgreSQL with PostGIS extension
-2. Create database:
-```sql
-CREATE DATABASE tymed_dos;
-\c tymed_dos
-CREATE EXTENSION postgis;
-```
-
-## Project Structure
-
-```
+```text
 backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py           # FastAPI application
-│   ├── core/             # Core configuration
-│   ├── models/           # SQLAlchemy models
-│   ├── schemas/          # Pydantic schemas
-│   └── routes/           # API endpoints
-│       ├── photos.py
-│       └── locations.py
-├── requirements.txt
-├── .env.example
-└── README.md
+├── pom.xml
+├── mvnw
+└── src/
+    ├── main/java/com/tymeddos/
+    │   ├── TymedDosApplication.java
+    │   ├── ApiInfoController.java
+    │   ├── config/        # CORS
+    │   ├── exception/     # error responses
+    │   └── photo/         # controller → service → repository (JDBC + PostGIS SQL)
+    ├── main/resources/
+    │   ├── application.yml
+    │   └── db/migration/
+    └── test/
 ```
-
-## Next Steps
-
-1. Implement database models with SQLAlchemy and GeoAlchemy2
-2. Add database migrations with Alembic
-3. Implement authentication/authorization
-4. Add cloud storage integration (GCS or S3)
-5. Implement caching with Redis
-6. Add comprehensive tests
