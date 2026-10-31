@@ -54,14 +54,14 @@ The API will be available at:
 
 ### Using Docker (Recommended)
 
+From the repo root, use Docker Compose (PostgreSQL 16 + PostGIS 3.4):
+
 ```bash
-docker run --name tymed-dos-db \
-  -e POSTGRES_USER=tymed \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=tymed_dos \
-  -p 5432:5432 \
-  -d postgis/postgis:15-3.3
+cp .env.example .env    # then set POSTGRES_PASSWORD
+docker compose up -d
 ```
+
+See the root README for details.
 
 ### Manual Setup
 
