@@ -52,16 +52,19 @@ jobs:
             if curl -fs http://localhost:8080/actuator/health | grep -q '"UP"'; then echo "App is UP"; exit 0; fi
             sleep 2
           done
-          echo "App did not become healthy"; cat app.log; exit 1
+          echo "::error title=Startup::App did not become healthy: $(grep -m3 -E 'ERROR|Exception' app.log | tr '\n' ' ' | head -c 600)"
+          cat app.log; exit 1
 
       - name: Smoke test endpoints
         run: |
           set -e
+          fail() { echo "::error title=Smoke test::$1"; exit 1; }
           check() { # expected_status url
             code=$(curl -s -o body.json -w '%{http_code}' "$2")
             echo "$code $2 -> $(head -c 300 body.json)"
-            [ "$code" = "$1" ] || { echo "Expected $1"; exit 1; }
+            [ "$code" = "$1" ] || fail "Expected $1 got $code for $2: $(head -c 400 body.json | tr '\n' ' ')"
           }
+          expect_body() { grep -q "$1" body.json || fail "Body did not match '$1': $(head -c 400 body.json | tr '\n' ' ')"; }
           check 200 "http://localhost:8080/actuator/health"
           check 200 "http://localhost:8080/api/photos"
           check 200 "http://localhost:8080/api/photos/"
@@ -72,15 +75,18 @@ jobs:
 
           # PostGIS radius query: Detroit photo should match near Detroit, not near Chicago.
           psql -h localhost -U tymed -d tymed_dos -c "INSERT INTO photos (id, title, url, latitude, longitude, date, tags)
-            VALUES ('ci_1', 'Woodward Ave', 'https://example.com/1.jpg', 42.3314, -83.0458, '1925-06-01T00:00:00Z', ARRAY['detroit'])"
+            VALUES ('ci_1', 'Woodward Ave', 'https://example.com/1.jpg', 42.3314, -83.0458, '1925-06-01T00:00:00Z', ARRAY['detroit'])" \
+            || fail "Inserting test photo failed"
           check 200 "http://localhost:8080/api/photos?lat=42.33&lng=-83.05&radius=5"
-          grep -q '"ci_1"' body.json
+          expect_body '"ci_1"'
           check 200 "http://localhost:8080/api/photos?lat=41.88&lng=-87.63&radius=5"
-          grep -q '^\[\]$' body.json
+          expect_body '^\[\]$'
           check 200 "http://localhost:8080/api/photos?start_date=1920-01-01&end_date=1929-12-31"
-          grep -q '"ci_1"' body.json
+          expect_body '"ci_1"'
           check 200 "http://localhost:8080/api/photos/ci_1"
 
       - name: App log
         if: always()
-        run: cat app.log || true
+        run: |
+          cat app.log || true
+          grep -m5 -E 'ERROR|Exception' app.log | while read -r line; do echo "::warning title=App log::${line:0:600}"; done || true
