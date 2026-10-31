@@ -67,7 +67,7 @@ Tymed-Dos is a full-stack application designed to:
 
 - **Node.js** 18+ and npm
 - **Python** 3.10+
-- **PostgreSQL** 14+ with PostGIS extension
+- **Docker** (runs PostgreSQL 16 + PostGIS 3.4 via Docker Compose), or PostgreSQL 16 with PostGIS installed locally
 - **Mapbox Account** (for map visualization)
 
 ### Quick Start
@@ -131,14 +131,22 @@ scrapy crawl example -o output.json
 
 #### Using Docker (Recommended)
 
+Runs PostgreSQL 16 + PostGIS 3.4 from the repo root:
+
 ```bash
-docker run --name tymed-dos-db \
-  -e POSTGRES_USER=tymed \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=tymed_dos \
-  -p 5432:5432 \
-  -d postgis/postgis:15-3.3
+cp .env.example .env    # then set POSTGRES_PASSWORD
+docker compose up -d
+docker compose ps       # wait for "healthy"
+
+# Check PostGIS is enabled
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT postgis_full_version();"'
 ```
+
+Stop with `docker compose down` (add `-v` to delete the data volume and start fresh).
+
+> **Upgrading from the old PostgreSQL 15 setup?** The existing data volume won't start on 16
+> ("database files are incompatible with server"). There's no real data yet, so reset it:
+> `docker compose down -v && docker compose up -d`.
 
 #### Manual Setup
 
