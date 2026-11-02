@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: tymed-dos-backend
+  datasource:
+    # Same variables as the Docker Compose .env (see ../.env.example)
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:tymed_dos}
+    username: ${POSTGRES_USER:tymed}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

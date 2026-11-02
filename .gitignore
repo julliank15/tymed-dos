@@ -84,3 +84,7 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
