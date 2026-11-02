@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Repository;
 public class PhotoRepository {
 
     private static final String SELECT_COLUMNS = """
-            SELECT id, title, description, url, thumbnail_url, latitude, longitude, address, date, source, photographer, tags
+            SELECT id, title, description, url, thumbnail_url,
+                   ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude,
+                   address, date_taken, source, photographer, tags
             FROM photos
             """;
 
@@ -38,17 +41,17 @@ public class PhotoRepository {
                 .addValue("offset", criteria.offset());
 
         if (criteria.startDate() != null) {
-            conditions.add("date >= :startDate");
+            conditions.add("date_taken >= :startDate");
             params.addValue("startDate", criteria.startDate());
         }
         if (criteria.endDate() != null) {
-            conditions.add("date <= :endDate");
+            conditions.add("date_taken <= :endDate");
             params.addValue("endDate", criteria.endDate());
         }
         if (criteria.hasLocationFilter()) {
-            // Must match the expression in idx_photos_geography so the GIST index is used.
+            // Uses the GIST index idx_photos_location.
             conditions.add("ST_DWithin("
-                    + "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography, "
+                    + "location, "
                     + "ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, "
                     + ":radiusMeters)");
             params.addValue("longitude", criteria.longitude())
@@ -60,15 +63,21 @@ public class PhotoRepository {
         if (!conditions.isEmpty()) {
             sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
-        sql.append(" ORDER BY date DESC, id ASC LIMIT :limit OFFSET :offset");
+        sql.append(" ORDER BY date_taken DESC, id ASC LIMIT :limit OFFSET :offset");
         return jdbcTemplate.query(sql.toString(), params, rowMapper);
     }
 
     public Optional<PhotoResponse> findById(String photoId) {
+        UUID id;
+        try {
+            id = UUID.fromString(photoId);
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
         String sql = SELECT_COLUMNS + " WHERE id = :photoId";
         List<PhotoResponse> results = jdbcTemplate.query(
                 sql,
-                new MapSqlParameterSource("photoId", photoId),
+                new MapSqlParameterSource("photoId", id),
                 rowMapper
         );
         return results.stream().findFirst();
@@ -86,7 +95,7 @@ public class PhotoRepository {
                         rs.getDouble("longitude"),
                         rs.getString("address")
                 ),
-                rs.getObject("date", OffsetDateTime.class),
+                rs.getObject("date_taken", OffsetDateTime.class),
                 new PhotoResponse.PhotoMetadataResponse(
                         rs.getString("source"),
                         rs.getString("photographer"),
